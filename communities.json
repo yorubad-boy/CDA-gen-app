@@ -1,0 +1,34 @@
+{
+  "divine-wisdom-cda": {
+    "display_name": "Divine Wisdom CDA",
+    "icon": "🏘️",
+    "currency": "₦",
+    "sources": {
+      "Development Fee": {
+        "spreadsheet_id": "1jQlLFJeimhaKhThr0v6fgvJNdHJkYeonO7zAxI5EfL8",
+        "gid": 494362929,
+        "type": "monthly"
+      },
+      "Monthly Minutes": {
+        "spreadsheet_id": "1b3-M1xPw1AChLFFOQZ-0fnNlXie5AwuwLFUauvWrOhw",
+        "gid": 2080911856,
+        "type": "monthly"
+      },
+      "Electricity Connection": {
+        "spreadsheet_id": "1m_XlYYYo_HlCJUtpHWH6OPdffJq3vEwZWYBrrZn2mdE",
+        "gid": 303203247,
+        "type": "payment"
+      },
+      "Projects": {
+        "spreadsheet_id": "1aEucpAJPB6NLWKMmqgmMlmhwGbdy-HIxSnAv-j61aGE",
+        "gid": 1442528727,
+        "type": "payment"
+      },
+      "Expenditure": {
+        "spreadsheet_id": "10kY8WzW8TmS2vHzsv03Il5zIJCKPAxV0nzEzH_1nta0",
+        "gid": 1042344473,
+        "type": "expenditure"
+      }
+    }
+  }
+}
