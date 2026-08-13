@@ -373,9 +373,66 @@ tab_names = ["Overview"] + list(sources.keys())
 tabs = st.tabs(tab_names)
 
 with tabs[0]:
-    monthly_income = sum(data[label]["Total"].sum() for label in sources if sources[label]["type"] == "monthly" and not data[label].empty)
-    payments_paid = sum(data[label]["Paid"].sum() for label in sources if sources[label]["type"] == "payment" and not data[label].empty)
-    outstanding_balance = sum(data[label]["Balance"].sum() for label in sources if sources[label]["type"] == "payment" and not data[label].empty)
+    # --- Filters ---
+    all_names = set()
+    all_dates = []
+    for label, cfg in sources.items():
+        df = data[label]
+        if df.empty:
+            continue
+        if "Name" in df.columns:
+            all_names.update(df["Name"].dropna().unique().tolist())
+        date_col = "Date" if "Date" in df.columns else ("Timestamp" if "Timestamp" in df.columns else None)
+        if date_col:
+            valid_dates = df[date_col].dropna()
+            if not valid_dates.empty:
+                all_dates.append(valid_dates.min())
+                all_dates.append(valid_dates.max())
+
+    fcol1, fcol2 = st.columns([2, 1])
+    with fcol1:
+        if all_dates:
+            min_date, max_date = min(all_dates).date(), max(all_dates).date()
+            date_range = st.date_input(
+                "Date range",
+                value=(min_date, max_date),
+                min_value=min_date,
+                max_value=max_date,
+                key=f"date_range_{selected_id}",
+            )
+        else:
+            date_range = None
+    with fcol2:
+        selected_names = st.multiselect(
+            "Person",
+            sorted(all_names),
+            default=[],
+            placeholder="All members",
+            key=f"person_filter_{selected_id}",
+        )
+
+    def apply_overview_filters(df: pd.DataFrame) -> pd.DataFrame:
+        if df.empty:
+            return df
+        filtered = df
+        if date_range and isinstance(date_range, tuple) and len(date_range) == 2:
+            start, end = date_range
+            date_col = "Date" if "Date" in filtered.columns else ("Timestamp" if "Timestamp" in filtered.columns else None)
+            if date_col:
+                mask = filtered[date_col].dt.date.between(start, end)
+                # Rows with no date at all are kept (e.g. monthly sheets may lack per-row dates)
+                filtered = filtered[mask | filtered[date_col].isna()]
+        if selected_names and "Name" in filtered.columns:
+            filtered = filtered[filtered["Name"].isin(selected_names)]
+        return filtered
+
+    overview_data = {label: apply_overview_filters(df) for label, df in data.items()}
+
+    st.divider()
+
+    monthly_income = sum(overview_data[label]["Total"].sum() for label in sources if sources[label]["type"] == "monthly" and not overview_data[label].empty)
+    payments_paid = sum(overview_data[label]["Paid"].sum() for label in sources if sources[label]["type"] == "payment" and not overview_data[label].empty)
+    outstanding_balance = sum(overview_data[label]["Balance"].sum() for label in sources if sources[label]["type"] == "payment" and not overview_data[label].empty)
     grand_total = monthly_income + payments_paid
 
     col1, col2, col3, col4 = st.columns(4)
@@ -390,8 +447,8 @@ with tabs[0]:
     by_source = pd.DataFrame({
         "Source": summary_labels,
         "Amount": [
-            data[label]["Total"].sum() if sources[label]["type"] == "monthly" and not data[label].empty
-            else (data[label]["Paid"].sum() if not data[label].empty else 0)
+            overview_data[label]["Total"].sum() if sources[label]["type"] == "monthly" and not overview_data[label].empty
+            else (overview_data[label]["Paid"].sum() if not overview_data[label].empty else 0)
             for label in summary_labels
         ],
     }).set_index("Source")
@@ -402,7 +459,7 @@ with tabs[0]:
     per_source_columns = {}
     for label in summary_labels:
         cfg = sources[label]
-        df = data[label]
+        df = overview_data[label]
         if df.empty:
             per_source_columns[label] = pd.Series(dtype=float)
             continue
