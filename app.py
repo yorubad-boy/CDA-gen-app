@@ -375,33 +375,30 @@ tabs = st.tabs(tab_names)
 with tabs[0]:
     # --- Filters ---
     all_names = set()
-    all_dates = []
+    all_years = set()
     for label, cfg in sources.items():
         df = data[label]
         if df.empty:
             continue
         if "Name" in df.columns:
             all_names.update(df["Name"].dropna().unique().tolist())
+        if "Year" in df.columns:
+            all_years.update(int(y) for y in df["Year"].dropna().unique().tolist())
         date_col = "Date" if "Date" in df.columns else ("Timestamp" if "Timestamp" in df.columns else None)
         if date_col:
             valid_dates = df[date_col].dropna()
             if not valid_dates.empty:
-                all_dates.append(valid_dates.min())
-                all_dates.append(valid_dates.max())
+                all_years.update(valid_dates.dt.year.unique().tolist())
 
     fcol1, fcol2 = st.columns([2, 1])
     with fcol1:
-        if all_dates:
-            min_date, max_date = min(all_dates).date(), max(all_dates).date()
-            date_range = st.date_input(
-                "Date range",
-                value=(min_date, max_date),
-                min_value=min_date,
-                max_value=max_date,
-                key=f"date_range_{selected_id}",
-            )
-        else:
-            date_range = None
+        selected_years = st.multiselect(
+            "Year",
+            sorted(all_years, reverse=True),
+            default=[],
+            placeholder="All years",
+            key=f"year_filter_{selected_id}",
+        )
     with fcol2:
         selected_names = st.multiselect(
             "Person",
@@ -415,13 +412,16 @@ with tabs[0]:
         if df.empty:
             return df
         filtered = df
-        if date_range and isinstance(date_range, tuple) and len(date_range) == 2:
-            start, end = date_range
-            date_col = "Date" if "Date" in filtered.columns else ("Timestamp" if "Timestamp" in filtered.columns else None)
-            if date_col:
-                mask = filtered[date_col].dt.date.between(start, end)
-                # Rows with no date at all are kept (e.g. monthly sheets may lack per-row dates)
-                filtered = filtered[mask | filtered[date_col].isna()]
+        if selected_years:
+            if "Year" in filtered.columns:
+                year_series = filtered["Year"]
+            else:
+                date_col = "Date" if "Date" in filtered.columns else ("Timestamp" if "Timestamp" in filtered.columns else None)
+                year_series = filtered[date_col].dt.year if date_col else None
+            if year_series is not None:
+                # Rows with no year info at all are kept rather than silently dropped
+                mask = year_series.isin(selected_years) | year_series.isna()
+                filtered = filtered[mask]
         if selected_names and "Name" in filtered.columns:
             filtered = filtered[filtered["Name"].isin(selected_names)]
         return filtered
